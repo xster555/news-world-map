@@ -32,6 +32,6 @@ echo.
 echo   正在发布数据快照到 web\data ...
 %PY% scripts\publish.py
 echo.
-echo   完成。结果见 collect.log 与 data\news.json
+echo   完成。结果见 collect.log、data\news.json 与 web\data\ 快照
 echo.
 pause

@@ -34,8 +34,8 @@ Everything is local: **no `pip install`, no API key, no tile server, no CDN.**
 - **Daily volume chart** in the corner — click a bar to jump to that day.
 - **Add your own points** by clicking anywhere on the map (stored in your browser).
 - **Light and dark themes.**
-- **Runs offline.** Leaflet, the world borders and the data are all inlined, so
-  `web/index.html` opens straight from the filesystem.
+- **Runs offline.** Leaflet and the world borders are inlined, so once a snapshot has
+  been published `web/index.html` opens straight from the filesystem.
 
 ---
 
@@ -53,9 +53,9 @@ Python standard library**, so there is nothing to `pip install`.
 3. Open <http://127.0.0.1:8000/> in your browser.
 
 Two windows appear: *"新闻世界地图 - 本地服务"* (keep it open — closing it stops the server)
-and a second one showing collection progress. The page opens in about three seconds with the
-bundled dataset; fresh stories arrive in the background (~10–40 s) and the page detects them
-automatically.
+and a second one showing collection progress. The page opens in about three seconds, empty —
+**the repository deliberately ships no news data** — and fills in once the first collection
+finishes (~10–40 s); it then picks up new stories on its own.
 
 > Install Python from <https://www.python.org/downloads/> and **tick "Add python.exe to PATH"**.
 > `run.bat` looks for `py -3` and then `python`, and tells you if it finds neither.
@@ -79,21 +79,23 @@ Then open <http://127.0.0.1:8000/>.
 | Command | What it does |
 |---|---|
 | `run.bat` / `./run.sh` | Collect **and** serve — the everyday command |
-| `serve.bat` / `./serve.sh` | Serve only (no network access needed) |
-| `daily.bat` / `./daily.sh` | Collect only (good for a scheduled task) |
+| `serve.bat` / `./serve.sh` | Serve only — shows the last published snapshot (collect at least once first) |
+| `daily.bat` / `./daily.sh` | Collect, then publish (good for a scheduled task) |
 | `run.bat 9000` / `PORT=9000 ./run.sh` | Use a different port |
 | `python3 -m collector.collect` | Collect only, from Python directly |
 | `python3 scripts/publish.py` | Publish the snapshot into `web/data/` (validate first) |
 | `python3 -m collector.build_gazetteer` | Rebuild the gazetteer from scratch |
 
 Both `run.*` variants start the local server **immediately** and collect in the background,
-writing progress to `collect.log`.
+writing progress to `collect.log`. Every collection is followed by a publish step that
+validates the data against the contract and writes the snapshot into `web/data/`.
 
 ### Open it without a server
 
-`web/` is a self-contained static site. Double-clicking `web/index.html` works over
-`file://` — the map, the scripts and the vendored data are all local. You will only see the
-snapshot that ships with the repo unless you run a collection first.
+`web/` is a self-contained static site. Once a snapshot has been published, double-clicking
+`web/index.html` works over `file://` — the map, the scripts and the data are all local.
+Since the repository ships no news data, a fresh clone has to collect once first
+(`daily.bat` / `./daily.sh`); after that the page needs no server at all.
 
 ### What you do *not* need
 
@@ -225,8 +227,10 @@ other places a story mentions, which is the fastest way to sanity-check a pin.
 
 ## Keeping it up to date
 
-The data in the repository is a **snapshot** from whenever it was last collected. To keep it
-fresh, run a collector on a schedule.
+News data is **not** stored in the repository. `data/news.json` and the published snapshot in
+`web/data/` are runtime artefacts — excluded by `.gitignore` — so every clone starts empty and
+builds its own archive on the first collection. To keep it fresh afterwards, run a collector on
+a schedule.
 
 ### Windows — Task Scheduler
 
@@ -279,6 +283,10 @@ The collector writes **only** `data/news.json` — it has no idea a website exis
 is a separate, explicit step, so *"collected but never published"* can never be mistaken for
 *"up to date"*.
 
+Because the news is a runtime artefact rather than repository content, a clone carries the
+code, the contract and the gazetteer — not the stories. `scripts/publish.py` rebuilds
+`web/data/` from `data/news.json` on every run.
+
 ---
 
 ## Project layout
@@ -301,12 +309,12 @@ news-world-map/
 ├── scripts/
 │   └── publish.py       # the bridge: validate data/news.json → publish to web/data/
 ├── data/                # MODULE 1's private data
-│   ├── gazetteer.json   # the gazetteer
-│   └── news.json        # the archive (read and written by the collector)
+│   ├── gazetteer.json   # the gazetteer (in the repo)
+│   └── news.json        # the archive — runtime artefact, not in the repo
 ├── web/                 # MODULE 2 — the static site (self-contained, opens over file://)
 │   ├── index.html / app.js / style.css
 │   ├── contract.js      # data-contract validator (browser side)
-│   ├── data/            # published snapshot: news.json / news-data.js / contract.js
+│   ├── data/            # contract.js is in the repo; news.json / news-data.js are not
 │   └── vendor/          # Leaflet + world borders (inlined, works offline)
 ├── docs/
 │   ├── screenshot-dark.png / screenshot-light.png
@@ -321,8 +329,15 @@ news-world-map/
 ## FAQ
 
 **The page is empty.**
-Run a collection first: `daily.bat` on Windows, `./daily.sh` on macOS/Linux. Feeds that
-cannot be reached are skipped — the rest still load.
+The repository ships no news data, so this is the expected state of a fresh clone. Collect
+first: `daily.bat` on Windows, `./daily.sh` on macOS/Linux — or `python3 -m collector.collect`
+followed by `python3 scripts/publish.py`. Feeds that cannot be reached are skipped — the rest
+still load.
+
+**Why isn't the news data in the repository?**
+News changes by the hour; committing it would bury the code in churn. The repository carries
+the collector, the contract and the gazetteer, and each clone builds its own archive on the
+first run.
 
 **Some stories appear to be in the wrong country.**
 That is the ⚪ *inferred from source* marker: the headline and summary really did contain no
@@ -350,7 +365,7 @@ Pull requests are welcome. A few notes:
   the site must keep working over `file://` with no CDN.
 - **Add a feed** by editing `collector/config.py`; include the publisher's name and their
   country so stories with no place name can still be placed sensibly.
-- **Improve the gazetteer** through `build_gazetteer.py` rather than by hand-editing
+- **Improve the gazetteer** through `collector/build_gazetteer.py` rather than by hand-editing
   `data/gazetteer.json`, so it stays reproducible.
 - **Match the surrounding style.** Code comments and UI strings are in Chinese; the
   documentation lives in `README.md` (English) and `README_zh.md` (Chinese), and the two

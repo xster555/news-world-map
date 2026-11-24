@@ -13,5 +13,14 @@ if [ -z "$PY_BIN" ]; then
 fi
 
 PORT="${PORT:-8000}"
+
+# 仓库不含新闻数据：还没采集过就直接开服务，页面会是空的
+if [ ! -f web/data/news-data.js ]; then
+  echo "⚠ 还没有发布过数据快照（仓库不含新闻数据）。"
+  echo "  先跑一次采集：./daily.sh"
+  echo "  或：python3 -m collector.collect && python3 scripts/publish.py"
+  echo ""
+fi
+
 echo "▶ http://127.0.0.1:${PORT}/"
 exec "$PY_BIN" -m http.server "$PORT" --directory web

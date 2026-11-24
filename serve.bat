@@ -28,6 +28,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist "web\data\news-data.js" (
+  echo.
+  echo   [!] 还没有发布过数据快照（仓库不含新闻数据）。
+  echo   先跑一次采集：daily.bat
+  echo   或：python -m collector.collect 然后 python scripts\publish.py
+  echo.
+)
+
 echo.
 echo   新闻世界地图 - 本地服务
 echo   地址: http://127.0.0.1:%PORT%/

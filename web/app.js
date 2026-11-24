@@ -93,7 +93,8 @@
         .then(function (r) { return r.json(); })
         .then(resolve)
         .catch(function (e) {
-          showStatus('无法加载数据：' + e.message + '（请先运行 python3 -m collector.collect）', true);
+          showStatus('无法加载数据：' + e.message
+            + '（仓库不含新闻数据，请先运行 python3 -m collector.collect，再运行 python3 scripts/publish.py）', true);
           resolve({ items: [], count: 0, generated_at: '' });
         });
     });
@@ -1287,7 +1288,8 @@
 
       // 数据为空时提示
       if (!state.all.length) {
-        showStatus('暂无数据：请先运行 python3 -m collector.collect 抓取新闻', true);
+        showStatus('暂无数据：仓库不附带新闻数据，请先运行 python3 -m collector.collect 抓取新闻，'
+          + '再运行 python3 scripts/publish.py 发布快照', true);
       }
     });
 

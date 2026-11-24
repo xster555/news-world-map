@@ -34,6 +34,7 @@ echo    新闻世界地图   News World Map
 echo   ============================================
 echo.
 echo    本地地址:  http://127.0.0.1:%PORT%/
+echo    仓库不含新闻数据，首次采集完成后页面才会出现内容。
 echo    正在启动本地服务，并在后台采集最新新闻...
 echo    采集日志:  collect.log
 echo.

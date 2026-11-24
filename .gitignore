@@ -4,6 +4,15 @@ collect.log
 # 未知地名地理编码的运行时缓存（可随时重新生成）
 data/_geocode_cache.json
 
+# ---- 新闻数据（运行时产物，不入库）----
+# 采集器的滚动档案，以及发布到 web/data/ 的快照。
+# 每次跑一遍采集就会变，属于本机运行产物而不是仓库内容，因此不入库：
+# 克隆后跑一次采集（run.bat / run.sh / daily.bat / daily.sh）即可在本地生成。
+# 注意 web/data/contract.js 不在此列——契约是随快照发布的稳定产物，要入库。
+data/news.json
+web/data/news.json
+web/data/news-data.js
+
 # ---- Python ----
 __pycache__/
 *.py[cod]

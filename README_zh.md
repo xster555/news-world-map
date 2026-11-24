@@ -29,7 +29,7 @@
 - **每日新闻量柱状图**，点某一天即可跳过去。
 - **自定义新闻点**：进入标注模式后在地图上任意位置点击添加（存在浏览器本地）。
 - **明暗双主题。**
-- **离线可用。** Leaflet、世界国界与数据全部内联，`web/index.html` 直接双击就能打开。
+- **离线可用。** Leaflet 与世界国界全部内联，发布出快照后 `web/index.html` 直接双击就能打开。
 
 ---
 
@@ -46,7 +46,7 @@ Python 3.8+，外加一个现代浏览器。采集器**只用 Python 标准库**
 3. 浏览器打开 <http://127.0.0.1:8000/>。
 
 会弹出两个窗口：一个是「新闻世界地图 - 本地服务」（保持打开，关掉即停止服务），另一个显示采集进度。
-页面约 3 秒就能打开，先看到仓库自带的那份数据；新新闻在后台采集（约 10～40 秒），页面会自动检测并提示。
+页面约 3 秒就能打开，此时是空的——**仓库刻意不附带新闻数据**——第一次采集完成后（约 10～40 秒）内容会自动填上，之后每次更新页面都会自己检测。
 
 > 安装 Python：<https://www.python.org/downloads/>，安装时**务必勾选 `Add python.exe to PATH`**。
 > `run.bat` 会依次检测 `py -3` 和 `python`，都找不到会给出提示。
@@ -69,19 +69,21 @@ cd news-world-map
 | 命令 | 作用 |
 |---|---|
 | `run.bat` / `./run.sh` | 采集 + 启动服务（日常用这个） |
-| `serve.bat` / `./serve.sh` | 只启动服务，不采集（断网也能看） |
-| `daily.bat` / `./daily.sh` | 只采集（适合挂定时任务） |
+| `serve.bat` / `./serve.sh` | 只启动服务，显示已发布的快照（需先采集过一次） |
+| `daily.bat` / `./daily.sh` | 采集并发布（适合挂定时任务） |
 | `run.bat 9000` / `PORT=9000 ./run.sh` | 换端口 |
 | `python3 -m collector.collect` | 直接用 Python 采集 |
 | `python3 scripts/publish.py` | 把快照发布到 `web/data/`（先校验再发布） |
 | `python3 -m collector.build_gazetteer` | 重建地点库 |
 
 `run.*` 系列会**立刻**启动本地服务，同时在后台采集，日志写到 `collect.log`。
+每次采集之后都会紧跟一步发布：按契约校验数据，再把快照写进 `web/data/`。
 
 ### 不用服务也能看
 
-`web/` 是一个自包含的静态站点。直接双击 `web/index.html` 用 `file://` 打开同样正常——
-地图、脚本和内联数据全在本地。只是看不到最新数据，除非先跑一次采集。
+`web/` 是一个自包含的静态站点。发布出快照之后，直接双击 `web/index.html` 用 `file://` 打开同样正常——
+地图、脚本和数据全在本地。仓库不附带新闻数据，所以刚克隆下来要先跑一次采集
+（`daily.bat` / `./daily.sh`）；做完之后这个页面就完全不需要服务器了。
 
 ### 不需要的东西
 
@@ -205,7 +207,9 @@ python3 -m collector.build_gazetteer
 
 ## 每日自动更新
 
-仓库里的数据是**上一次采集那一刻的快照**，之后要更新得自己跑采集。
+新闻数据**不存放在仓库里**。`data/news.json` 与发布到 `web/data/` 的快照都是运行时产物，
+已被 `.gitignore` 排除——所以每次克隆都是空的，第一次采集时自己建一份档案；之后要保持新鲜，
+就得挂一个定时采集。
 
 ### Windows：用「任务计划程序」
 
@@ -255,6 +259,9 @@ collector.collect  →  data/news.json  →  scripts/publish.py  →  web/data/
 采集器**只**写 `data/news.json`，它完全不知道有个网站存在。发布是独立的、显式的一步，
 所以「采集了但没发布」不会再被误当成「已经是最新」。
 
+因为新闻属于运行时产物而不是仓库内容，克隆下来拿到的是代码、契约与地点库——不是新闻本身。
+`scripts/publish.py` 每次运行都会从 `data/news.json` 重建 `web/data/`。
+
 ---
 
 ## 目录结构
@@ -277,12 +284,12 @@ news-world-map/
 ├── scripts/
 │   └── publish.py      # 桥：校验 data/news.json → 发布到 web/data/
 ├── data/               # 模块一的私有数据
-│   ├── gazetteer.json  # 地点库
-│   └── news.json       # 累加的新闻数据（采集器读写）
+│   ├── gazetteer.json  # 地点库（入库）
+│   └── news.json       # 累加的新闻档案——运行时产物，不入库
 ├── web/                # 模块二：静态站点（自包含，可直接 file:// 打开）
 │   ├── index.html / app.js / style.css
 │   ├── contract.js     # 数据契约校验器（浏览器侧）
-│   ├── data/           # 发布产物：news.json / news-data.js / contract.js
+│   ├── data/           # contract.js 入库；news.json / news-data.js 不入库
 │   └── vendor/         # Leaflet + 世界国界数据（已内联，离线可用）
 ├── docs/
 │   ├── screenshot-dark.png / screenshot-light.png
@@ -297,8 +304,13 @@ news-world-map/
 ## 常见问题
 
 **页面是空的？**
-先跑一次采集：Windows 用 `daily.bat`，macOS/Linux 用 `./daily.sh`。
-连不上的源会被跳过，不影响其他源。
+仓库不附带新闻数据，所以刚克隆下来看到空页面是正常的。先跑一次采集：Windows 用 `daily.bat`，
+macOS/Linux 用 `./daily.sh`；也可以 `python3 -m collector.collect` 之后
+`python3 scripts/publish.py`。连不上的源会被跳过，不影响其他源。
+
+**为什么仓库里没有新闻数据？**
+新闻每时每刻都在变，进库只会把代码改动淹没在数据噪音里。仓库只保存采集器、数据契约与地点库，
+新闻档案由每个克隆在首次运行时自己建立。
 
 **有些新闻定位到了美国/法国，看着不对？**
 那是 ⚪「来源地推断」—— 这条新闻的标题和摘要里确实没有提到任何地名，只能按媒体总部放置。
