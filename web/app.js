@@ -396,7 +396,13 @@
           if (!cardPinned) closeCardLater(150);
         });
       }
-      // 图片是异步加载的，落地后卡片高度会变，稍后再夹一次
+      // 图片挂掉时 onerror 会把 img 藏掉，卡片高度随之变化，得重新夹一次；
+      // 再留一个兜底延时，覆盖图片加载特别慢的情况。
+      var img = el && el.querySelector('img.card-img');
+      if (img && !img._nwmBound) {
+        img._nwmBound = true;
+        img.addEventListener('error', function () { clampPopup(pop); });
+      }
       setTimeout(function () { clampPopup(pop); }, 220);
     });
 
@@ -756,6 +762,19 @@
    * Leaflet 的 popup 定位是「底边贴在锚点下方 offset.y 处」，
    * 所以 offset.y 为正表示向下移、offset.x 为正表示向右移。
    */
+  /**
+   * 只挪弹窗的位置，绝不重建卡片内容。
+   *
+   * Leaflet 的 Popup.update() 会把内容用 innerHTML 重新写一遍：
+   * 卡片里的按钮因此被销毁重建，而重建期间容器是 visibility:hidden，
+   * 按钮会「消失一帧」再回来——视觉上就是闪一下。
+   * Leaflet 自己在缩放/复位时也只是调 _updatePosition()，所以这里照做即可。
+   */
+  function repositionPopup(pop) {
+    if (!pop || !pop._map) return;
+    pop._updatePosition();
+  }
+
   function clampPopup(pop) {
     var el = pop && pop.getElement && pop.getElement();
     if (!el || !map || !pop.isOpen()) return;
@@ -763,7 +782,7 @@
     // 复位到原始位置（上一次可能被夹过）
     if (pop._nwmBase) {
       pop.options.offset = L.point(pop._nwmBase.x, pop._nwmBase.y);
-      pop.update();
+      repositionPopup(pop);
     }
 
     var mRect = map.getContainer().getBoundingClientRect();
@@ -805,7 +824,7 @@
     var base = pop._nwmBase || L.point(0, 7);
     pop._nwmBase = base;
     pop.options.offset = L.point(base.x + dx, base.y + dy);
-    pop.update();
+    repositionPopup(pop);
     // 卡片离开圆点后，小箭头就指错位置了，直接藏掉
     el.classList.add('nwm-shifted');
   }
