@@ -1,0 +1,33 @@
+# ---- 采集器运行时产物 ----
+# 采集日志（每次运行都会追加，不需要入库）
+collect.log
+# 未知地名地理编码的运行时缓存（可随时重新生成）
+data/_geocode_cache.json
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+
+# ---- 编辑器 / IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ---- 打包产物 ----
+*.zip
+*.tar.gz
+*.7z

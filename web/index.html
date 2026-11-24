@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>新闻世界地图 · News World Map</title>
+<meta name="description" content="把国际新闻定位到世界地图上的每日新闻地图">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ 顶栏 ============ -->
+  <header id="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="19" height="19"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>新闻世界地图</h1>
+        <span id="brand-sub">每日累加 · 按日期筛选</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <!-- 日期筛选 -->
+      <div class="ctl ctl-daterange">
+        <label class="ctl-label" for="date-from">日期范围</label>
+        <div class="date-inputs">
+          <input type="date" id="date-from" aria-label="起始日期">
+          <span class="date-sep">→</span>
+          <input type="date" id="date-to" aria-label="结束日期">
+        </div>
+      </div>
+
+      <div class="ctl">
+        <label class="ctl-label">快捷区间</label>
+        <div class="preset-row" id="presets">
+          <button class="preset" data-days="1">24 小时</button>
+          <button class="preset active" data-days="7">7 天</button>
+          <button class="preset" data-days="30">30 天</button>
+          <button class="preset" data-days="0">全部</button>
+        </div>
+      </div>
+
+      <div class="ctl ctl-search">
+        <label class="ctl-label" for="q">搜索</label>
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="search" id="q" placeholder="标题 / 摘要 / 地点" autocomplete="off">
+          <button class="clear-btn" id="q-clear" title="清除" hidden>&times;</button>
+        </div>
+      </div>
+
+      <div class="ctl ctl-actions">
+        <button class="btn btn-ghost" id="btn-add" title="在地图上添加自定义新闻点">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>添加新闻点</span>
+        </button>
+        <button class="btn btn-ghost icon-only" id="btn-theme" title="切换明暗">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" fill="currentColor"/></svg>
+        </button>
+        <button class="btn btn-ghost icon-only" id="btn-help" title="使用说明">?</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ 主体 ============ -->
+  <main id="main">
+    <section id="mapwrap">
+      <div id="map" role="application" aria-label="新闻世界地图"></div>
+
+      <!-- 统计条 -->
+      <div class="map-overlay overlay-stats" id="stats">
+        <div class="stat">
+          <span class="stat-num" id="stat-count">0</span>
+          <span class="stat-label">条新闻</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num" id="stat-countries">0</span>
+          <span class="stat-label">个国家</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num" id="stat-sources">0</span>
+          <span class="stat-label">个来源</span>
+        </div>
+      </div>
+
+      <!-- 图例 -->
+      <div class="map-overlay overlay-legend" id="legend">
+        <div class="legend-title">定位精度</div>
+        <div class="legend-row"><i class="dot dot-high"></i><span>城市级</span></div>
+        <div class="legend-row"><i class="dot dot-medium"></i><span>国家 / 州</span></div>
+        <div class="legend-row"><i class="dot dot-low"></i><span>来源地推断</span></div>
+        <div class="legend-row"><i class="dot dot-custom"></i><span>自定义</span></div>
+      </div>
+
+      <!-- 每日柱状图 -->
+      <div class="map-overlay overlay-timeline" id="timeline">
+        <div class="tl-head">
+          <span class="tl-title">每日新闻量</span>
+          <span class="tl-range" id="tl-range"></span>
+        </div>
+        <svg id="tl-svg" viewBox="0 0 600 54" preserveAspectRatio="none" role="img" aria-label="每日新闻量柱状图"></svg>
+      </div>
+
+      <!-- 添加模式提示 -->
+      <div class="map-overlay overlay-hint" id="add-hint" hidden>
+        <strong>添加新闻点</strong>　点击地图任意位置放置标记，Esc 取消
+        <button class="btn btn-mini" id="add-cancel">取消</button>
+      </div>
+
+      <!-- 加载/错误 -->
+      <div class="map-overlay overlay-status" id="status" hidden></div>
+    </section>
+
+    <aside id="side">
+      <div class="side-head">
+        <div class="side-tabs">
+          <button class="tab active" data-tab="all">全部</button>
+          <button class="tab" data-tab="high">城市级</button>
+          <button class="tab" data-tab="unlocated">未定位 <b id="tab-unlocated-n">0</b></button>
+        </div>
+        <div class="side-sort">
+          <label for="sort">排序</label>
+          <select id="sort">
+            <option value="time">最新优先</option>
+            <option value="conf">定位优先</option>
+            <option value="source">来源</option>
+          </select>
+        </div>
+      </div>
+      <div class="side-list" id="list"></div>
+      <div class="side-foot" id="list-foot"></div>
+    </aside>
+  </main>
+</div>
+
+<!-- 更新提示 -->
+<div class="toast" id="toast" hidden></div>
+
+<!-- 添加新闻点的表单弹层 -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-card">
+    <h3>添加新闻点</h3>
+    <p class="modal-sub" id="modal-coord"></p>
+    <label class="fld"><span>标题 *</span><input id="f-title" type="text" placeholder="例如：某地发生地震"></label>
+    <label class="fld"><span>备注</span><textarea id="f-note" rows="3" placeholder="补充说明（可选）"></textarea></label>
+    <label class="fld"><span>链接</span><input id="f-url" type="url" placeholder="https://…（可选）"></label>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="f-cancel">取消</button>
+      <button class="btn btn-primary" id="f-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 说明弹层 -->
+<div class="modal" id="help" hidden>
+  <div class="modal-card">
+    <h3>使用说明</h3>
+    <ul class="help-list">
+      <li><b>地图</b>：<b>鼠标悬停圆点即可看到新闻详情</b>，移开自动收起；数字圆点是聚合点，<b>鼠标悬停即可列出该位置的全部新闻</b>，点其中一条直接跳转看详情，点圆点本身则放大展开。</li>
+      <li><b>筛选</b>：默认展示最近 7 天，可用日期框或「24 小时 / 7 天 / 30 天 / 全部」切换。</li>
+      <li><b>搜索</b>：支持标题、摘要与地点关键词。</li>
+      <li><b>添加新闻点</b>：点顶栏「添加新闻点」后，在地图上任意位置点击即可添加自定义条目（保存在浏览器本地）。</li>
+      <li><b>数据来源</b>：<span id="help-sources"></span></li>
+      <li><b>更新</b>：每日由采集任务增量写入 <code>data/news.json</code>，本页面读取的是最新快照。</li>
+    </ul>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="help-close">知道了</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<script src="data/news-data.js"></script>
+<script src="vendor/countries-110m.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
