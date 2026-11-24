@@ -330,6 +330,14 @@ html.light .date-inputs input::-webkit-calendar-picker-indicator { filter: none;
 }
 .stat-label { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
 
+/* 发布窗口提示：页面只拿得到最近这一段数据 */
+.stat-window {
+  padding: 0 8px 0 12px;
+  justify-content: center;
+}
+.stat-window .stat-label { margin-top: 0; line-height: 1.4; text-align: center; }
+.stat-window #stat-window-days { color: var(--text); font-weight: 680; }
+
 .overlay-legend {
   top: 14px; right: 14px;
   padding: 10px 13px;

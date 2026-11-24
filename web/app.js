@@ -115,6 +115,23 @@
       + errors.slice(0, 2).join('；') + (errors.length > 2 ? ' 等' : ''), true);
   }
 
+  /**
+   * 发布窗口提示。
+   *
+   * 采集器本机保留完整档案（90 天），但发布产物只含最近 window_days 天。
+   * 用户点「全部」看到的其实是这个窗口内的全部——如实告诉他，
+   * 别让人以为那就是完整历史。
+   */
+  function showPublishWindow(days) {
+    var el = $('stat-window');
+    if (!el) return;
+    if (!days || days <= 0) { el.hidden = true; return; }
+    $('stat-window-days').textContent = String(days);
+    el.hidden = false;
+    var allBtn = document.querySelector('.preset[data-days="0"]');
+    if (allBtn) allBtn.title = '已发布最近 ' + days + ' 天的全部数据';
+  }
+
   function loadCustom() {
     try {
       var raw = localStorage.getItem('nwm.custom.v1');
@@ -1264,6 +1281,7 @@
 
     loadData().then(function (payload) {
       checkContract(payload);
+      showPublishWindow(payload.window_days);
       state.generatedAt = payload.generated_at
         ? payload.generated_at.replace('T', ' ').replace('Z', ' UTC')
         : '';

@@ -18,7 +18,8 @@
       "generated_at": { "type": "string", "minLength": 10 },
       "count": { "type": "integer" },
       "sources": { "type": "array" },
-      "items": { "type": "array", "items": { "$ref": "item" } }
+      "items": { "type": "array", "items": { "$ref": "item" } },
+      "window_days": { "type": "integer" }
     }
   },
   "item": {
@@ -65,16 +66,18 @@
     }
   },
   "internal_fields": {
-    "tkey": "标题归一化哈希，采集器内部去重键；前端不得依赖",
-    "ukey": "URL 归一化哈希，采集器内部去重键；前端不得依赖",
-    "fallback": "是否走了兜底定位；前端不得依赖",
-    "section": "来源栏目；前端不得依赖",
-    "source_id": "来源 id；前端不得依赖"
+    "tkey": "标题归一化哈希，采集器内部去重键；发布时裁掉，前端不得依赖",
+    "ukey": "URL 归一化哈希，采集器内部去重键；发布时裁掉，前端不得依赖",
+    "fallback": "是否走了兜底定位；发布时裁掉，前端不得依赖",
+    "section": "来源栏目；发布时裁掉，前端不得依赖",
+    "source_id": "来源 id；发布时裁掉，前端不得依赖"
   },
   "notes": [
     "lat / lon / location 允许为 null：未定位的条目（当前约占 3%）就是这种情况。",
     "confidence_label 只有 high / medium / low 三种取值；custom 是地图端本地添加的用户点，不属于采集契约。",
     "未在本规格中列出的字段一律放行（向前兼容），但那属于采集器内部实现，地图端不得依赖。",
-    "count 必须等于 items 的长度——这是发布器的额外不变量，两端校验器都不表达跨字段规则。"
+    "count 必须等于 items 的长度——这是发布器的额外不变量，两端校验器都不表达跨字段规则。",
+    "window_days 是发布窗口天数（0 表示不限）：采集器本机保留完整档案，发布产物只含最近这一段；地图端据此告知用户可见范围。",
+    "internal_fields 里列出的字段在发布时被裁掉，因此**发布出去的快照与本规格逐字一致**——地图端看不到采集器的内部实现。"
   ]
 }

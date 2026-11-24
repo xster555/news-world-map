@@ -74,6 +74,7 @@ cd news-world-map
 | `run.bat 9000` / `PORT=9000 ./run.sh` | 换端口 |
 | `python3 -m collector.collect` | 直接用 Python 采集 |
 | `python3 scripts/publish.py` | 把快照发布到 `web/data/`（先校验再发布） |
+| `python3 scripts/publish.py --window-days 60` | 发布更宽的窗口（默认 30 天） |
 | `python3 -m collector.build_gazetteer` | 重建地点库 |
 
 `run.*` 系列会**立刻**启动本地服务，同时在后台采集，日志写到 `collect.log`。
@@ -170,10 +171,25 @@ RSS 里没有任何地理字段，每一条新闻的位置都是**从文本推�
        → 去重（标题哈希 + 归一化 URL）
        → 与历史数据合并（累加）→ 写回 data/news.json
        → 按 contract/news-v1.json 校验
+       → 裁掉采集器内部字段、截取最近 30 天
        → 发布快照 → web/data/
 ```
 
 历史数据默认保留 **90 天**，上限 **4000 条**。
+
+### 发布窗口
+
+你本机的 `data/news.json` 保存着**完整的 90 天档案**。页面用不到全部，所以发布器在写出前
+先把快照裁一刀：
+
+- **裁掉采集器的内部字段**（`tkey`、`ukey`、`fallback`、`section`、`source_id`）——这些是去重键
+  与实现细节，地图端根本用不到。契约里本就标了「前端不得依赖」，裁掉之后这就从一句约定
+  变成了数据层面的硬边界，发布出去的快照与契约逐字一致。
+- **把快照截成最近 30 天**——档案再涨，页面的下载量也不会跟着涨。
+
+发布产物用 `window_days` 记录实际窗口，页面在统计条里如实写明「已发布最近 30 天」，
+这样点「全部」的人不会误以为那就是完整历史。想放宽就
+`python3 scripts/publish.py --window-days 60`，想全量就加 `--window-days 0`。
 
 ### 定位是怎么做的
 
@@ -260,7 +276,8 @@ collector.collect  →  data/news.json  →  scripts/publish.py  →  web/data/
 所以「采集了但没发布」不会再被误当成「已经是最新」。
 
 因为新闻属于运行时产物而不是仓库内容，克隆下来拿到的是代码、契约与地点库——不是新闻本身。
-`scripts/publish.py` 每次运行都会从 `data/news.json` 重建 `web/data/`。
+`scripts/publish.py` 每次运行都会从 `data/news.json` 重建 `web/data/`，顺手把快照裁一刀
+（见[发布窗口](#发布窗口)）。
 
 ---
 
@@ -285,11 +302,11 @@ news-world-map/
 │   └── publish.py      # 桥：校验 data/news.json → 发布到 web/data/
 ├── data/               # 模块一的私有数据
 │   ├── gazetteer.json  # 地点库（入库）
-│   └── news.json       # 累加的新闻档案——运行时产物，不入库
+│   └── news.json       # 完整的 90 天新闻档案——运行时产物，不入库
 ├── web/                # 模块二：静态站点（自包含，可直接 file:// 打开）
 │   ├── index.html / app.js / style.css
 │   ├── contract.js     # 数据契约校验器（浏览器侧）
-│   ├── data/           # contract.js 入库；news.json / news-data.js 不入库
+│   ├── data/           # contract.js 入库；裁剪后的快照不入库
 │   └── vendor/         # Leaflet + 世界国界数据（已内联，离线可用）
 ├── docs/
 │   ├── screenshot-dark.png / screenshot-light.png
@@ -311,6 +328,10 @@ macOS/Linux 用 `./daily.sh`；也可以 `python3 -m collector.collect` 之后
 **为什么仓库里没有新闻数据？**
 新闻每时每刻都在变，进库只会把代码改动淹没在数据噪音里。仓库只保存采集器、数据契约与地点库，
 新闻档案由每个克隆在首次运行时自己建立。
+
+**页面为什么只有最近 30 天？**
+那是发布窗口——你本机的档案保留完整 90 天。想全量发布就
+`python3 scripts/publish.py --window-days 90`。
 
 **有些新闻定位到了美国/法国，看着不对？**
 那是 ⚪「来源地推断」—— 这条新闻的标题和摘要里确实没有提到任何地名，只能按媒体总部放置。

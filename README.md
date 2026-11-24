@@ -84,6 +84,7 @@ Then open <http://127.0.0.1:8000/>.
 | `run.bat 9000` / `PORT=9000 ./run.sh` | Use a different port |
 | `python3 -m collector.collect` | Collect only, from Python directly |
 | `python3 scripts/publish.py` | Publish the snapshot into `web/data/` (validate first) |
+| `python3 scripts/publish.py --window-days 60` | Publish a wider window (default: 30 days) |
 | `python3 -m collector.build_gazetteer` | Rebuild the gazetteer from scratch |
 
 Both `run.*` variants start the local server **immediately** and collect in the background,
@@ -185,10 +186,29 @@ fetch RSS  →  parse headline / summary / time / image
            →  de-duplicate (hash of the headline + normalised URL)
            →  merge into the archive  →  write data/news.json
            →  validate against contract/news-v1.json
+           →  strip the collector's internal fields, cut to the last 30 days
            →  publish the snapshot    →  web/data/
 ```
 
 History is kept for **90 days**, capped at **4000 stories**.
+
+### The published window
+
+Your machine keeps the **full 90-day archive** in `data/news.json`. The page does not need
+all of it, so the publisher trims the snapshot before writing it:
+
+- it **strips the collector's internal fields** (`tkey`, `ukey`, `fallback`, `section`,
+  `source_id`) — de-duplication keys and implementation details the map has no use for.
+  The contract marks them *must not be depended on*; stripping them turns that from a
+  convention into a hard boundary, so the published snapshot matches the contract field
+  for field.
+- it **cuts the snapshot to the last 30 days**, so a growing archive never turns into a
+  growing download.
+
+The published payload records the window in `window_days`, and the page says so in its
+stats bar — *"published: last 30 days"* — so *"All"* is never mistaken for the whole
+history. Widen it with `python3 scripts/publish.py --window-days 60`, or publish everything
+with `--window-days 0`.
 
 ### How a location is inferred
 
@@ -285,7 +305,8 @@ is a separate, explicit step, so *"collected but never published"* can never be 
 
 Because the news is a runtime artefact rather than repository content, a clone carries the
 code, the contract and the gazetteer — not the stories. `scripts/publish.py` rebuilds
-`web/data/` from `data/news.json` on every run.
+`web/data/` from `data/news.json` on every run, trimming the snapshot on the way
+(see [The published window](#the-published-window)).
 
 ---
 
@@ -310,11 +331,11 @@ news-world-map/
 │   └── publish.py       # the bridge: validate data/news.json → publish to web/data/
 ├── data/                # MODULE 1's private data
 │   ├── gazetteer.json   # the gazetteer (in the repo)
-│   └── news.json        # the archive — runtime artefact, not in the repo
+│   └── news.json        # the full 90-day archive — runtime artefact, not in the repo
 ├── web/                 # MODULE 2 — the static site (self-contained, opens over file://)
 │   ├── index.html / app.js / style.css
 │   ├── contract.js      # data-contract validator (browser side)
-│   ├── data/            # contract.js is in the repo; news.json / news-data.js are not
+│   ├── data/            # contract.js is in the repo; the trimmed snapshot is not
 │   └── vendor/          # Leaflet + world borders (inlined, works offline)
 ├── docs/
 │   ├── screenshot-dark.png / screenshot-light.png
@@ -338,6 +359,10 @@ still load.
 News changes by the hour; committing it would bury the code in churn. The repository carries
 the collector, the contract and the gazetteer, and each clone builds its own archive on the
 first run.
+
+**Why does the page only show the last 30 days?**
+That is the published window — the archive on your machine keeps the full 90 days. Run
+`python3 scripts/publish.py --window-days 90` to publish the whole archive instead.
 
 **Some stories appear to be in the wrong country.**
 That is the ⚪ *inferred from source* marker: the headline and summary really did contain no
