@@ -73,7 +73,8 @@ cd news-world-map
 | `daily.bat` / `./daily.sh` | 只采集（适合挂定时任务） |
 | `run.bat 9000` / `PORT=9000 ./run.sh` | 换端口 |
 | `python3 -m collector.collect` | 直接用 Python 采集 |
-| `python3 build_gazetteer.py` | 重建地点库 |
+| `python3 scripts/publish.py` | 把快照发布到 `web/data/`（先校验再发布） |
+| `python3 -m collector.build_gazetteer` | 重建地点库 |
 
 `run.*` 系列会**立刻**启动本地服务，同时在后台采集，日志写到 `collect.log`。
 
@@ -166,6 +167,8 @@ RSS 里没有任何地理字段，每一条新闻的位置都是**从文本推�
        → 地名匹配（地点库 + 未知地名自动扩展）
        → 去重（标题哈希 + 归一化 URL）
        → 与历史数据合并（累加）→ 写回 data/news.json
+       → 按 contract/news-v1.json 校验
+       → 发布快照 → web/data/
 ```
 
 历史数据默认保留 **90 天**，上限 **4000 条**。
@@ -189,7 +192,7 @@ RSS 里没有任何地理字段，每一条新闻的位置都是**从文本推�
 想重建地点库：
 
 ```bash
-python3 build_gazetteer.py
+python3 -m collector.build_gazetteer
 ```
 
 ### 已知的误差边界
@@ -226,26 +229,60 @@ crontab -e
 
 ---
 
+## 两个独立模块
+
+项目被拆成两个模块，双方只通过一份显式的数据契约通信：
+
+| 模块 | 位置 | 拥有 | 是否知道对方的存在 |
+|---|---|---|---|
+| **采集器**（新闻获取） | `collector/` | `data/` | 不知道 |
+| **地图**（展示） | `web/` | 页面 | 不知道 |
+
+契约是 `contract/news-v1.json`——一份描述了所有字段的机器可读文件。
+两侧各有一个小校验器读它：`collector/contract.py`（Python 侧）与
+`web/contract.js`（浏览器侧）。
+
+```
+collector.collect  →  data/news.json  →  scripts/publish.py  →  web/data/
+                                                   ↓ 按 contract/news-v1.json 校验
+                                       web/data/news-data.js  +  contract.js
+```
+
+`scripts/publish.py` 是唯一知道双方都存在的文件。**数据不符合契约时它会拒绝发布**：
+打印出问题的字段路径，原地保留上一份快照，页面继续显示上一次的好数据，
+而不是半坏的状态。
+
+采集器**只**写 `data/news.json`，它完全不知道有个网站存在。发布是独立的、显式的一步，
+所以「采集了但没发布」不会再被误当成「已经是最新」。
+
+---
+
 ## 目录结构
 
 ```
 news-world-map/
 ├── run.bat / serve.bat / daily.bat    # Windows 一键脚本
 ├── run.sh / serve.sh / daily.sh       # macOS / Linux 一键脚本
-├── build_gazetteer.py                 # 重建地点库
-├── collector/                         # 采集器（纯标准库）
+├── collector/                         # 模块一：采集器（纯标准库）
 │   ├── config.py       # 数据源与常量
 │   ├── feeds.py        # RSS 抓取与解析
 │   ├── gazetteer.py    # 地名匹配引擎
 │   ├── geocode.py      # 未知地名自动扩展
 │   ├── normalize.py    # 文本归一化与去重键
-│   └── collect.py      # 主流程
-├── data/
+│   ├── contract.py     # 数据契约校验器（Python 侧）
+│   ├── build_gazetteer.py  # 重建地点库
+│   └── collect.py      # 主流程——只写 data/news.json，别的都不碰
+├── contract/
+│   └── news-v1.json    # 两个模块共同遵守的数据契约
+├── scripts/
+│   └── publish.py      # 桥：校验 data/news.json → 发布到 web/data/
+├── data/               # 模块一的私有数据
 │   ├── gazetteer.json  # 地点库
 │   └── news.json       # 累加的新闻数据（采集器读写）
-├── web/                # 静态站点（自包含，可直接 file:// 打开）
+├── web/                # 模块二：静态站点（自包含，可直接 file:// 打开）
 │   ├── index.html / app.js / style.css
-│   ├── data/           # 供页面读取的数据副本
+│   ├── contract.js     # 数据契约校验器（浏览器侧）
+│   ├── data/           # 发布产物：news.json / news-data.js / contract.js
 │   └── vendor/         # Leaflet + 世界国界数据（已内联，离线可用）
 ├── docs/
 │   ├── screenshot-dark.png / screenshot-light.png
@@ -286,7 +323,7 @@ news-world-map/
 - **保持零依赖。** 采集器只能用 Python 标准库；站点必须继续能在 `file://` 下打开，不能引入 CDN 外链。
 - **加新闻源**请改 `collector/config.py`，并写清媒体名称与所属国家，
   这样没有地名的新闻也能被放到合理的位置。
-- **改地点库**请走 `build_gazetteer.py` 重新生成，而不是手改 `data/gazetteer.json`，以便复现。
+- **改地点库**请走 `python3 -m collector.build_gazetteer` 重新生成，而不是手改 `data/gazetteer.json`，以便复现。
 - **跟随现有风格。** 代码注释与界面文案是中文；文档分 `README.md`（英文）与 `README_zh.md`（中文），
   两份需要同步更新。
 - `docs/superpowers/specs/` 里的设计说明解释了采集器为什么是这个结构，改匹配规则前值得先读一遍。

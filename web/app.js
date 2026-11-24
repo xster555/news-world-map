@@ -99,6 +99,21 @@
     });
   }
 
+  /**
+   * 按随快照一同发布的契约校验数据。
+   *
+   * 契约缺失（只拷了数据没拷契约）时静默跳过；校验不过也只提示、不阻断渲染——
+   * 地图端是消费者，只负责报告，不越权拒绝。
+   */
+  function checkContract(payload) {
+    var spec = window.__NWM_CONTRACT__;
+    if (!spec || !window.NWMContract) return;
+    var errors = window.NWMContract.validate(payload, spec);
+    if (!errors || !errors.length) return;
+    showStatus('数据与契约 ' + (spec.version || '') + ' 不一致（' + errors.length + ' 处）：'
+      + errors.slice(0, 2).join('；') + (errors.length > 2 ? ' 等' : ''), true);
+  }
+
   function loadCustom() {
     try {
       var raw = localStorage.getItem('nwm.custom.v1');
@@ -1247,6 +1262,7 @@
     initMap();
 
     loadData().then(function (payload) {
+      checkContract(payload);
       state.generatedAt = payload.generated_at
         ? payload.generated_at.replace('T', ' ').replace('Z', ' UTC')
         : '';

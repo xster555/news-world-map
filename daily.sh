@@ -13,3 +13,4 @@ if [ -z "$PY_BIN" ]; then
 fi
 
 "$PY_BIN" -m collector.collect
+"$PY_BIN" scripts/publish.py

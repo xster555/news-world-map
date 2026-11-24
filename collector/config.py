@@ -7,14 +7,10 @@ import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
-WEB_DIR = os.path.join(ROOT, "web")
 
+# 本模块只关心自己的数据目录——web/ 属于地图端，由 scripts/publish.py 负责对接。
 GAZETTEER_PATH = os.path.join(DATA_DIR, "gazetteer.json")
 NEWS_JSON_PATH = os.path.join(DATA_DIR, "news.json")
-NEWS_JS_PATH = os.path.join(DATA_DIR, "news-data.js")
-WEB_DATA_DIR = os.path.join(WEB_DIR, "data")
-WEB_NEWS_JS_PATH = os.path.join(WEB_DATA_DIR, "news-data.js")
-WEB_NEWS_JSON_PATH = os.path.join(WEB_DATA_DIR, "news.json")
 DISCOVERED_PATH = os.path.join(DATA_DIR, "_discovered_places.json")
 GEOCODE_CACHE_PATH = os.path.join(DATA_DIR, "_geocode_cache.json")
 

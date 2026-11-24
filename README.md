@@ -83,7 +83,8 @@ Then open <http://127.0.0.1:8000/>.
 | `daily.bat` / `./daily.sh` | Collect only (good for a scheduled task) |
 | `run.bat 9000` / `PORT=9000 ./run.sh` | Use a different port |
 | `python3 -m collector.collect` | Collect only, from Python directly |
-| `python3 build_gazetteer.py` | Rebuild the gazetteer from scratch |
+| `python3 scripts/publish.py` | Publish the snapshot into `web/data/` (validate first) |
+| `python3 -m collector.build_gazetteer` | Rebuild the gazetteer from scratch |
 
 Both `run.*` variants start the local server **immediately** and collect in the background,
 writing progress to `collect.log`.
@@ -181,6 +182,8 @@ fetch RSS  →  parse headline / summary / time / image
            →  match place names (gazetteer + on-the-fly discovery)
            →  de-duplicate (hash of the headline + normalised URL)
            →  merge into the archive  →  write data/news.json
+           →  validate against contract/news-v1.json
+           →  publish the snapshot    →  web/data/
 ```
 
 History is kept for **90 days**, capped at **4000 stories**.
@@ -208,7 +211,7 @@ History is kept for **90 days**, capped at **4000 stories**.
 Rebuild the gazetteer from scratch with:
 
 ```bash
-python3 build_gazetteer.py
+python3 -m collector.build_gazetteer
 ```
 
 ### Known limits
@@ -247,26 +250,63 @@ The page re-checks for new data every minute, so a refresh is enough to see the 
 
 ---
 
+## Two independent modules
+
+The project is split into two modules that only ever talk to each other through an explicit
+data contract:
+
+| Module | Lives in | Owns | Knows about the other side |
+|---|---|---|---|
+| **Collector** (news acquisition) | `collector/` | `data/` | nothing |
+| **Map** (presentation) | `web/` | the page | nothing |
+
+The contract is `contract/news-v1.json` — one machine-readable file describing every field.
+A small validator on each side reads it: `collector/contract.py` (Python) and
+`web/contract.js` (browser).
+
+```
+collector.collect  →  data/news.json  →  scripts/publish.py  →  web/data/
+                                                    ↓ validate against contract/news-v1.json
+                                        web/data/news-data.js  +  contract.js
+```
+
+`scripts/publish.py` is the only file that knows both sides exist. It **refuses to publish
+data that does not match the contract**: it prints the offending field paths and leaves the
+previous snapshot untouched, so the page keeps showing the last good data instead of
+something half-broken.
+
+The collector writes **only** `data/news.json` — it has no idea a website exists. Publishing
+is a separate, explicit step, so *"collected but never published"* can never be mistaken for
+*"up to date"*.
+
+---
+
 ## Project layout
 
 ```
 news-world-map/
 ├── run.bat / serve.bat / daily.bat    # Windows one-click scripts
 ├── run.sh / serve.sh / daily.sh       # macOS / Linux one-click scripts
-├── build_gazetteer.py                 # rebuild the gazetteer
-├── collector/                         # the collector (standard library only)
+├── collector/                         # MODULE 1 — the collector (standard library only)
 │   ├── config.py        # feeds and constants
 │   ├── feeds.py         # RSS fetching and parsing
 │   ├── gazetteer.py     # place-name matching engine
 │   ├── geocode.py       # on-the-fly place discovery
 │   ├── normalize.py     # text normalisation and de-duplication keys
-│   └── collect.py       # main pipeline
-├── data/
+│   ├── contract.py      # data-contract validator (Python side)
+│   ├── build_gazetteer.py  # rebuild the gazetteer from scratch
+│   └── collect.py       # main pipeline — writes data/news.json and nothing else
+├── contract/
+│   └── news-v1.json     # the data contract both modules agree on
+├── scripts/
+│   └── publish.py       # the bridge: validate data/news.json → publish to web/data/
+├── data/                # MODULE 1's private data
 │   ├── gazetteer.json   # the gazetteer
 │   └── news.json        # the archive (read and written by the collector)
-├── web/                # the static site (self-contained, opens over file://)
+├── web/                 # MODULE 2 — the static site (self-contained, opens over file://)
 │   ├── index.html / app.js / style.css
-│   ├── data/            # copy of the data for the page
+│   ├── contract.js      # data-contract validator (browser side)
+│   ├── data/            # published snapshot: news.json / news-data.js / contract.js
 │   └── vendor/          # Leaflet + world borders (inlined, works offline)
 ├── docs/
 │   ├── screenshot-dark.png / screenshot-light.png

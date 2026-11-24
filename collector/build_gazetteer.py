@@ -10,6 +10,8 @@
   4. 区域质心 —— 按国家集合聚合，用于区域源兜底
 
 只用标准库 + 一次性的 Open-Meteo 调用（结果缓存进 data/_geocode_cache.json，可重复运行）。
+
+运行：python3 -m collector.build_gazetteer
 """
 
 from __future__ import annotations
@@ -23,9 +25,11 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
-VENDOR = os.path.join(ROOT, "vendor")
+# 下载缓存放在 data/ 下面（与 _geocode_cache.json 同属私有数据），
+# 不在仓库根另开一个 vendor/ 目录。
+VENDOR = os.path.join(DATA, "_vendor")
 GEO_CACHE = os.path.join(DATA, "_geocode_cache.json")
 OUT = os.path.join(DATA, "gazetteer.json")
 

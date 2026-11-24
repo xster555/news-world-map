@@ -8,7 +8,7 @@
     1. 抓取全部 RSS 源
     2. 把每条新闻定位到地图坐标（地名库匹配 + 运行期自扩展）
     3. 与历史数据去重合并（累加，不覆盖）
-    4. 写出 data/news.json 与 data/news-data.js
+    4. 写出 data/news.json（地图端的发布由 scripts/publish.py 负责，本模块不碰 web/）
 """
 
 from __future__ import annotations
@@ -75,18 +75,6 @@ def save_dataset(items: list[dict], source_status: list[dict]):
     }
     with open(C.NEWS_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
-
-    # 同时输出一份 JS 版本，让页面用 file:// 直接打开也能读到数据
-    os.makedirs(C.WEB_DATA_DIR, exist_ok=True)
-    for js_path, json_path in ((C.NEWS_JS_PATH, C.NEWS_JSON_PATH),
-                               (C.WEB_NEWS_JS_PATH, C.WEB_NEWS_JSON_PATH)):
-        with open(js_path, "w", encoding="utf-8") as f:
-            f.write("/* 自动生成，勿手改；由 python3 -m collector.collect 写出 */\n")
-            f.write("window.__NEWS__ = ")
-            json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
-            f.write(";\n")
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
 
     return payload
 

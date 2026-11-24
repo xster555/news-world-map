@@ -15,7 +15,7 @@ fi
 PORT="${PORT:-8000}"
 
 # 先起服务：页面立刻可用（包内已带一份已采集的数据）
-# 再在后台采集，采完写回 data/，页面会自动检测并刷新
+# 再在后台采集，采完发布快照到 web/data/，页面会自动检测并刷新
 LOG="$PWD/collect.log"
 echo "▶ 启动本地服务：http://127.0.0.1:${PORT}/"
 echo "▶ 同时在后台采集最新新闻（日志：collect.log）"
@@ -26,6 +26,7 @@ echo ""
 SERVER_PID=$!
 trap 'kill $SERVER_PID 2>/dev/null' EXIT INT TERM
 
-"$PY_BIN" -m collector.collect > "$LOG" 2>&1 &
+( "$PY_BIN" -m collector.collect > "$LOG" 2>&1 \
+  && "$PY_BIN" scripts/publish.py >> "$LOG" 2>&1 ) &
 echo "   （采集完成前，页面展示的是包内自带的数据；完成后会自动刷新）"
 wait $SERVER_PID

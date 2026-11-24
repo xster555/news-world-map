@@ -1,0 +1,80 @@
+{
+  "version": "news-v1",
+  "description": "新闻世界地图 · 采集器（模块 A）→ 地图端（模块 B）的数据契约。这是两侧共享的唯一真相：Python 端与 JS 端各实现一个极简校验器读本文件。",
+  "rule_subset": {
+    "type": "string | number | integer | boolean | array | object | any",
+    "required": "数组，列出该对象下必须存在的字段名（只出现在对象级规格上）",
+    "nullable": "布尔，允许取 null",
+    "enum": "取值白名单",
+    "minLength": "字符串最小长度",
+    "items": "type=array 时，逐元素套用的规格",
+    "properties": "type=object 时，子字段规格",
+    "$ref": "引用本文件的其它顶层段落"
+  },
+  "payload": {
+    "type": "object",
+    "required": ["generated_at", "count", "sources", "items"],
+    "properties": {
+      "generated_at": { "type": "string", "minLength": 10 },
+      "count": { "type": "integer" },
+      "sources": { "type": "array" },
+      "items": { "type": "array", "items": { "$ref": "item" } }
+    }
+  },
+  "item": {
+    "type": "object",
+    "required": [
+      "id",
+      "title",
+      "source",
+      "published_at",
+      "located",
+      "confidence_label",
+      "confidence",
+      "places"
+    ],
+    "properties": {
+      "id": { "type": "string", "minLength": 1 },
+      "title": { "type": "string", "minLength": 1 },
+      "source": { "type": "string", "minLength": 1 },
+      "published_at": { "type": "string", "minLength": 10 },
+      "url": { "type": "string" },
+      "image": { "type": "string" },
+      "summary": { "type": "string" },
+      "lat": { "type": "number", "nullable": true },
+      "lon": { "type": "number", "nullable": true },
+      "located": { "type": "boolean" },
+      "confidence": { "type": "number" },
+      "confidence_label": { "type": "string", "enum": ["high", "medium", "low"] },
+      "location": { "$ref": "location", "nullable": true },
+      "places": { "type": "array" }
+    }
+  },
+  "location": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "zh": { "type": "string" },
+      "cc": { "type": "string" },
+      "country": { "type": "string" },
+      "country_zh": { "type": "string" },
+      "kind": { "type": "string" },
+      "lat": { "type": "number" },
+      "lon": { "type": "number" },
+      "matched_alias": { "type": "string" }
+    }
+  },
+  "internal_fields": {
+    "tkey": "标题归一化哈希，采集器内部去重键；前端不得依赖",
+    "ukey": "URL 归一化哈希，采集器内部去重键；前端不得依赖",
+    "fallback": "是否走了兜底定位；前端不得依赖",
+    "section": "来源栏目；前端不得依赖",
+    "source_id": "来源 id；前端不得依赖"
+  },
+  "notes": [
+    "lat / lon / location 允许为 null：未定位的条目（当前约占 3%）就是这种情况。",
+    "confidence_label 只有 high / medium / low 三种取值；custom 是地图端本地添加的用户点，不属于采集契约。",
+    "未在本规格中列出的字段一律放行（向前兼容），但那属于采集器内部实现，地图端不得依赖。",
+    "count 必须等于 items 的长度——这是发布器的额外不变量，两端校验器都不表达跨字段规则。"
+  ]
+}

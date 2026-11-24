@@ -47,6 +47,10 @@ echo.
 %PY% -m collector.collect
 
 echo.
+echo   正在发布数据快照到 web\data ...
+%PY% scripts\publish.py
+
+echo.
 echo   采集完成。回到浏览器刷新一下即可看到最新数据。
 echo.
 pause
